@@ -142,6 +142,43 @@ public unsafe ref struct Encoder
         _ctx.Command.CopyBufferToBuffer(_encoder, src.NativePtr, sourceOffset, dst.NativePtr, destinationOffset, size);
     }
 
+    public unsafe void CopyTextureToBuffer(
+        Entity texture, Entity buffer, uint width, uint height,
+        uint bytesPerRow, TextureAspect aspect = TextureAspect.All)
+    {
+        ThrowIfFinished();
+        ref var tex = ref texture.Get<TextureData>();
+        ref var buf = ref buffer.Get<BufferData>();
+
+        ImageCopyTexture src = new()
+        {
+            Texture = (Texture*)tex.NativePtr,
+            MipLevel = 0,
+            Origin = new Origin3D { X = 0, Y = 0, Z = 0 },
+            Aspect = aspect
+        };
+
+        ImageCopyBuffer dst = new()
+        {
+            Buffer = (Silk.NET.WebGPU.Buffer*)buf.NativePtr,
+            Layout = new TextureDataLayout
+            {
+                Offset = 0,
+                BytesPerRow = bytesPerRow,
+                RowsPerImage = height
+            }
+        };
+
+        Extent3D copySize = new()
+        {
+            Width = width,
+            Height = height,
+            DepthOrArrayLayers = 1
+        };
+
+        _ctx.Command.CommandEncoderCopyTextureToBuffer(_encoder, &src, &dst, &copySize);
+    }
+
     public nint Finish()
     {
         ThrowIfFinished();

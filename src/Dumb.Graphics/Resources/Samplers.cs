@@ -10,6 +10,25 @@ public static unsafe class Samplers
         Create(ctx, AddressMode.ClampToEdge, AddressMode.ClampToEdge, AddressMode.ClampToEdge,
             FilterMode.Linear, FilterMode.Linear, MipmapFilterMode.Linear);
 
+    public static Entity ShadowComparison(GraphicsContext ctx)
+    {
+        SamplerDescriptor descriptor = new()
+        {
+            AddressModeU = AddressMode.ClampToEdge,
+            AddressModeV = AddressMode.ClampToEdge,
+            AddressModeW = AddressMode.ClampToEdge,
+            MagFilter = FilterMode.Linear,
+            MinFilter = FilterMode.Linear,
+            MipmapFilter = MipmapFilterMode.Linear,
+            LodMinClamp = 0,
+            LodMaxClamp = 1,
+            Compare = CompareFunction.LessEqual,
+            MaxAnisotropy = 1,
+            Label = null
+        };
+        return Create(ctx, descriptor);
+    }
+
     public static Entity Create(
         GraphicsContext ctx,
         AddressMode addressModeU,

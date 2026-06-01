@@ -22,7 +22,7 @@ public partial record struct Camera(
         Matrix4x4.CreateLookAt(Position, Position + Forward, Up);
 
     public readonly Matrix4x4 ProjectionMatrix =>
-        Matrix4x4.CreatePerspectiveFieldOfView(Fov, AspectRatio, NearPlane, FarPlane);
+        Projection.PerspectiveGPU(Fov, AspectRatio, NearPlane, FarPlane);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetYawPitch(float yaw, float pitch)

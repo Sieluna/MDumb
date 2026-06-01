@@ -55,5 +55,6 @@ public sealed class RenderPipeline : IDisposable
         if (_disposed) return;
         _disposed = true;
         _syncStage.Dispose();
+        _graph.Clear();
     }
 }

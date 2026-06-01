@@ -19,6 +19,7 @@ public sealed class RenderGraph
 {
     private readonly List<RenderNode> _nodes = [];
     private readonly RenderContext _renderContext;
+    private bool _compiled;
 
     public RenderGraph(GraphicsContext ctx)
     {
@@ -27,7 +28,13 @@ public sealed class RenderGraph
 
     public void AddNode(RenderNode node) => _nodes.Add(node);
     public void RemoveNode(RenderNode node) => _nodes.Remove(node);
-    public void Clear() => _nodes.Clear();
+    public void Clear()
+    {
+        foreach (var node in _nodes)
+            node.Dispose();
+        _nodes.Clear();
+        _compiled = false;
+    }
     public IReadOnlyList<RenderNode> Nodes => _nodes;
 
     public CompileResult Compile()
@@ -36,7 +43,11 @@ public sealed class RenderGraph
         var warnings = new List<string>();
 
         foreach (var node in _nodes)
+        {
+            node.Inputs.Clear();
+            node.Outputs.Clear();
             node.DeclareResources();
+        }
 
         var producerMap = new Dictionary<Entity, RenderNode>();
         foreach (var node in _nodes)
@@ -88,6 +99,15 @@ public sealed class RenderGraph
 
     public void Run(World world)
     {
+        if (!_compiled)
+        {
+            var result = Compile();
+            if (!result.Success)
+                throw new InvalidOperationException(
+                    $"Render graph compilation failed: {string.Join("; ", result.Errors)}");
+            _compiled = true;
+        }
+
         foreach (var node in _nodes)
             node.Update(world);
 

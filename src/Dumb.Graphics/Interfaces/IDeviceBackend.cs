@@ -47,4 +47,9 @@ public unsafe interface IDeviceBackend
     public void ReleasePipelineLayout(nint pipelineLayout);
     public void ReleaseRenderPipeline(nint renderPipeline);
     public void ReleaseComputePipeline(nint computePipeline);
+
+    // Buffer mapping (for readback)
+    public void BufferMapAsync(nint buffer, MapMode mode, nuint offset, nuint size,
+        delegate* unmanaged[Cdecl]<BufferMapAsyncStatus, void*, void> callback, void* userdata);
+    public void* BufferGetConstMappedRange(nint buffer, nuint offset, nuint size);
 }

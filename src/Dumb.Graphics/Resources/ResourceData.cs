@@ -84,6 +84,7 @@ public struct MaterialResourceData
     public Entity Pipeline;
     public Entity PipelineLayout;
     public Entity?[] BindGroups;
+    public bool IsForward;
     public int RefCount;
 }
 

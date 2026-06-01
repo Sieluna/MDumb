@@ -16,14 +16,15 @@ public readonly struct GPULight
     public readonly uint Type;
     public readonly float InnerConeAngle;
     public readonly float OuterConeAngle;
-    public readonly float _pad0;
+    public readonly uint CastsShadows;
     public readonly float _pad1;
 
     public const uint MaxLights = 64;
-    public const int Size = 80;
+    public const int Size = 64;
 
     public GPULight(Vector3 color, float intensity, Vector3 direction, float range,
-        Vector3 position, uint type, float innerConeAngle, float outerConeAngle)
+        Vector3 position, uint type, float innerConeAngle, float outerConeAngle,
+        bool castsShadows = false)
     {
         Color = color;
         Intensity = intensity;
@@ -33,14 +34,15 @@ public readonly struct GPULight
         Type = type;
         InnerConeAngle = innerConeAngle;
         OuterConeAngle = outerConeAngle;
-        _pad0 = 0;
+        CastsShadows = castsShadows ? 1u : 0u;
         _pad1 = 0;
     }
 
     public static GPULight From(in Engine.Lighting.Light light, Vector3 position)
     {
         return new GPULight(light.Color, light.Intensity, light.Direction, light.Range,
-            position, (uint)light.Type, light.InnerConeAngle, light.OuterConeAngle);
+            position, (uint)light.Type, light.InnerConeAngle, light.OuterConeAngle,
+            light.CastsShadows);
     }
 }
 
@@ -53,9 +55,34 @@ public sealed class LightSyncSystem : ExtractSystemBase
     private readonly byte[] _lightData = new byte[GPULight.MaxLights * GPULight.Size];
     private Entity _lightBuffer = null!;
     private int _lightCount;
+    private int _nextSlot;
 
     public Entity LightBuffer => _lightBuffer;
     public int LightCount => _lightCount;
+
+    public Vector3 GetLightDirection(int slot)
+    {
+        if (slot < 0 || (slot + 1) * GPULight.Size > _lightData.Length)
+            return -Vector3.UnitY;
+        var span = _lightData.AsSpan(slot * GPULight.Size, GPULight.Size);
+        return MemoryMarshal.Read<Vector3>(span[16..]);
+    }
+
+    public uint GetLightType(int slot)
+    {
+        if (slot < 0 || (slot + 1) * GPULight.Size > _lightData.Length)
+            return uint.MaxValue;
+        var span = _lightData.AsSpan(slot * GPULight.Size, GPULight.Size);
+        return MemoryMarshal.Read<uint>(span[44..]);
+    }
+
+    public bool GetLightCastsShadows(int slot)
+    {
+        if (slot < 0 || (slot + 1) * GPULight.Size > _lightData.Length)
+            return false;
+        var span = _lightData.AsSpan(slot * GPULight.Size, GPULight.Size);
+        return MemoryMarshal.Read<uint>(span[56..]) != 0;
+    }
 
     public LightSyncSystem(GraphicsContext ctx)
         : base(Matchers.Any, extractMatcher: Matchers.Of<Engine.Lighting.Light>())
@@ -76,7 +103,7 @@ public sealed class LightSyncSystem : ExtractSystemBase
 
             if (!_entityToSlot.TryGetValue(id, out var slot))
             {
-                slot = _entityToSlot.Count;
+                slot = _nextSlot++;
                 _entityToSlot[id] = slot;
             }
             if (slot >= GPULight.MaxLights)
@@ -96,7 +123,7 @@ public sealed class LightSyncSystem : ExtractSystemBase
         {
             _lightBuffer = Buffers.Create(_ctx,
                 (ulong)(GPULight.MaxLights * GPULight.Size),
-                BufferUsage.Uniform | BufferUsage.CopyDst);
+                BufferUsage.Uniform | BufferUsage.CopyDst | BufferUsage.CopySrc);
         }
 
         Buffers.Write(_ctx, _lightBuffer!, 0, _lightData);

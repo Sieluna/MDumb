@@ -118,4 +118,11 @@ public sealed unsafe class NativeDeviceBackend : IDeviceBackend
 
     public void ReleaseComputePipeline(nint computePipeline) =>
         _wgpu.ComputePipelineRelease((ComputePipeline*)computePipeline);
+
+    public void BufferMapAsync(nint buffer, MapMode mode, nuint offset, nuint size,
+        delegate* unmanaged[Cdecl]<BufferMapAsyncStatus, void*, void> callback, void* userdata) =>
+        _wgpu.BufferMapAsync((Silk.NET.WebGPU.Buffer*)buffer, mode, offset, size, callback, userdata);
+
+    public void* BufferGetConstMappedRange(nint buffer, nuint offset, nuint size) =>
+        _wgpu.BufferGetConstMappedRange((Silk.NET.WebGPU.Buffer*)buffer, offset, size);
 }

@@ -43,10 +43,13 @@ public sealed class ExampleApp : IDisposable
     private Entity _cameraEntity;
     private GBuffer _gbuffer;
     private RenderPipeline _pipeline;
+    private ShadowPassNode _shadowNode;
     private DeferredLightingNode _deferredLightingNode;
+    private ForwardPassNode _forwardNode;
     private GpuMeshRegistry _meshRegistry;
 
     private Entity _pbrMaterialEntity;
+    private Entity _forwardMaterialEntity;
     private readonly List<Entity> _meshEntities = [];
 
     private int _frame;
@@ -190,11 +193,15 @@ public sealed class ExampleApp : IDisposable
         _pipeline = new RenderPipeline(_graphics, config,
             cameraSync, transformSync, lightSync, settingsSystem, phaseQueue);
 
+        _shadowNode = new ShadowPassNode(_graphics, phaseQueue, transformSync, lightSync);
         _deferredLightingNode = new DeferredLightingNode(
-            _graphics, cameraSync, lightSync, _gbuffer, _surface.Format);
+            _graphics, cameraSync, lightSync, _gbuffer, _surface.Format, _shadowNode);
+        _forwardNode = new ForwardPassNode(_graphics, phaseQueue, _gbuffer);
 
+        _pipeline.Graph.AddNode(_shadowNode);
         _pipeline.Graph.AddNode(new GBufferPassNode(_graphics, phaseQueue, _gbuffer));
         _pipeline.Graph.AddNode(_deferredLightingNode);
+        _pipeline.Graph.AddNode(_forwardNode);
 
         var result = _pipeline.Graph.Compile();
         if (!result.Success)
@@ -210,8 +217,12 @@ public sealed class ExampleApp : IDisposable
     {
         // Lights
         _engineWorld.Create(HList.From(
-            Light.DirectionalLight(new Vector3(1.0f, 0.95f, 0.85f), 2.0f,
-                new Vector3(0.3f, 0.7f, 0.6f)),
+            new Light(
+                Type: LightType.Directional,
+                Color: new Vector3(1.0f, 0.95f, 0.85f),
+                Intensity: 2.0f,
+                Direction: new Vector3(0.3f, -0.7f, 0.6f),
+                CastsShadows: true),
             new LocalTransform()));
 
         _engineWorld.Create(HList.From(
@@ -253,7 +264,28 @@ public sealed class ExampleApp : IDisposable
         ref var plData = ref matData.PipelineLayout.Get<PipelineLayoutData>();
         _pipeline.PhaseQueue.FrameBindGroupLayout = plData.BindGroupLayouts![0];
 
-        // Geometry
+        // Forward transparent PBR material (must set surface format before creation)
+        ForwardPBRMaterial.SurfaceFormat = _surface.Format;
+        var fwdMat = new ForwardPBRMaterial
+        {
+            Parameters = new ForwardPBRParams
+            {
+                BaseColor = new Vector3(0.3f, 0.7f, 1.0f),
+                Alpha = 0.4f,
+                Roughness = 0.3f,
+                Metallic = 0.1f,
+                Occlusion = 1.0f,
+                Emissive = Vector3.Zero
+            },
+            BaseColorTexture = defaultWhite,
+            NormalTexture = defaultNormal,
+            MROTexture = defaultMRO,
+            EmissiveTexture = defaultBlack,
+            Sampler = Samplers.LinearClamp(_graphics)
+        };
+        _forwardMaterialEntity = Materials.Create(_graphics, fwdMat);
+
+        // Geometry — all opaque (floor + 5 boxes)
         AddFloor(new Vector3(-5, 0, -5), new Vector3(5, 0, -5),
             new Vector3(5, 0, 5), new Vector3(-5, 0, 5),
             new Vector3(0.3f, 0.3f, 0.35f), Vector3.UnitY);
@@ -266,6 +298,10 @@ public sealed class ExampleApp : IDisposable
 
         foreach (var entity in _meshEntities)
             _meshRegistry.RegisterMaterial(entity, _pbrMaterialEntity);
+
+        // Transparent box (overrides to forward material)
+        AddBox(new Vector3(0, 1.5f, -1), 1.2f, new Vector3(0.3f, 0.7f, 1.0f));
+        _meshRegistry.RegisterMaterial(_meshEntities[^1], _forwardMaterialEntity);
     }
 
     //Per-frame ─────────────────────────────────────────────────
@@ -284,6 +320,7 @@ public sealed class ExampleApp : IDisposable
         }
 
         _deferredLightingNode.SwapchainView = frame.View;
+        _forwardNode.SwapchainView = frame.View;
         _pipeline.Tick();
         _frame++;
     }

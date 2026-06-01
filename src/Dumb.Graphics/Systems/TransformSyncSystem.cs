@@ -16,6 +16,7 @@ public sealed class TransformSyncSystem : ExtractSystemBase
     private byte[] _modelData = [];
     private int _slotCount;
     private int _capacity;
+    private int _nextSlot;
 
     public const int SlotByteSize = 256;
     private const int InitialSlots = 64;   // pre-allocate to avoid rebinding
@@ -58,7 +59,7 @@ public sealed class TransformSyncSystem : ExtractSystemBase
             _seenIds.Add(id);
             if (!_entityToSlot.TryGetValue(id, out var slot))
             {
-                slot = _entityToSlot.Count;
+                slot = _nextSlot++;
                 _entityToSlot[id] = slot;
             }
             if (slot + 1 > neededSlots)

@@ -20,6 +20,7 @@ public static class Materials
         var bufferLayouts = Mesh.ToVertexBufferLayouts(T.VertexDescriptor.Streams);
 
         var colorFormats = T.ColorFormats;
+        var depthStencil = T.DepthStencil;
         Entity pipeline;
         if (colorFormats.Length == 1)
         {
@@ -28,7 +29,8 @@ public static class Materials
                 colorFormats[0],
                 TextureFormat.Depth32float,
                 bufferLayouts,
-                T.Blend);
+                T.Blend,
+                depthStencil);
         }
         else
         {
@@ -47,6 +49,7 @@ public static class Materials
             Pipeline = pipeline,
             PipelineLayout = pipelineLayout,
             BindGroups = bindGroups,
+            IsForward = T.Blend != null,
             RefCount = 1
         }));
     }

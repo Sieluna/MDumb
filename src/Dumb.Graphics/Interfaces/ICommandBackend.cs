@@ -36,4 +36,6 @@ public unsafe interface ICommandBackend
     public void QueueWriteBuffer(nint queue, nint buffer, ulong bufferOffset, void* data, nuint size);
     public void QueueWriteTexture(nint queue, ImageCopyTexture* destination, void* data, nuint dataSize,
         TextureDataLayout* dataLayout, Extent3D* writeSize);
+    public void CommandEncoderCopyTextureToBuffer(nint encoder, ImageCopyTexture* source,
+        ImageCopyBuffer* destination, Extent3D* copySize);
 }

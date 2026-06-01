@@ -19,6 +19,7 @@ public sealed class GBuffer : IDisposable
     public Entity RT1View => _rt1.View;
     public Entity RT2View => _rt2.View;
     public Entity DepthView => _depthView;
+    public Entity DepthTexture => _depthTexture;
 
     public Entity RT0Texture => _rt0.Texture;
     public Entity RT1Texture => _rt1.Texture;
@@ -50,15 +51,15 @@ public sealed class GBuffer : IDisposable
     private void CreateTextures()
     {
         _rt0 = Textures.RenderTarget(_ctx, Width, Height, TextureFormat.Rgba8Unorm,
-            TextureUsage.RenderAttachment | TextureUsage.TextureBinding);
+            TextureUsage.RenderAttachment | TextureUsage.TextureBinding | TextureUsage.CopySrc);
         _rt1 = Textures.RenderTarget(_ctx, Width, Height, TextureFormat.Rgba16float,
-            TextureUsage.RenderAttachment | TextureUsage.TextureBinding);
+            TextureUsage.RenderAttachment | TextureUsage.TextureBinding | TextureUsage.CopySrc);
         _rt2 = Textures.RenderTarget(_ctx, Width, Height, TextureFormat.Rgba8Unorm,
-            TextureUsage.RenderAttachment | TextureUsage.TextureBinding);
+            TextureUsage.RenderAttachment | TextureUsage.TextureBinding | TextureUsage.CopySrc);
 
         _depthTexture = Textures.Create2D(_ctx, Width, Height,
             TextureFormat.Depth32float,
-            TextureUsage.RenderAttachment | TextureUsage.TextureBinding);
+            TextureUsage.RenderAttachment | TextureUsage.TextureBinding | TextureUsage.CopySrc);
         _depthView = Textures.CreateDepthView(_ctx, _depthTexture);
     }
 

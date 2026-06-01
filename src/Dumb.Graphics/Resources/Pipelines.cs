@@ -331,7 +331,7 @@ public static unsafe class Pipelines
         string vertexEntryPoint = "vs_main",
         string fragmentEntryPoint = "fs_main")
     {
-        return Render(ctx, shader, layout, colorFormat, null, vertexBuffers, null, vertexEntryPoint, fragmentEntryPoint);
+        return Render(ctx, shader, layout, colorFormat, null, vertexBuffers, null, null, vertexEntryPoint, fragmentEntryPoint);
     }
 
     public static Entity Render(
@@ -342,12 +342,18 @@ public static unsafe class Pipelines
         TextureFormat? depthFormat,
         ReadOnlySpan<VertexBufferLayoutDescriptor> vertexBuffers,
         BlendState? blend = null,
+        DepthStencilState? depthStencil = null,
         string vertexEntryPoint = "vs_main",
         string fragmentEntryPoint = "fs_main")
     {
         DepthStencilState ds = default;
         DepthStencilState* dsPtr = null;
-        if (depthFormat is { } df)
+        if (depthStencil is { } dss)
+        {
+            ds = dss;
+            dsPtr = &ds;
+        }
+        else if (depthFormat is { } df)
         {
             ds = new DepthStencilState
             {
@@ -508,6 +514,110 @@ public static unsafe class Pipelines
             Layout = layout,
             RefCount = 1
         }));
+    }
+
+    // --- RenderPipeline Depth-Only ---
+
+    public static Entity RenderDepthOnly(
+        GraphicsContext ctx,
+        Entity shader,
+        Entity layout,
+        TextureFormat depthFormat,
+        ReadOnlySpan<VertexBufferLayoutDescriptor> vertexBuffers,
+        string vertexEntryPoint = "vs_main",
+        string fragmentEntryPoint = "fs_main")
+    {
+        DepthStencilState ds = new()
+        {
+            Format = depthFormat,
+            DepthWriteEnabled = true,
+            DepthCompare = CompareFunction.Less,
+            StencilFront = DefaultStencilFace,
+            StencilBack = DefaultStencilFace
+        };
+
+        var vsBytes = Encoding.UTF8.GetBytes(vertexEntryPoint + '\0');
+        var fsBytes = Encoding.UTF8.GetBytes(fragmentEntryPoint + '\0');
+        fixed (byte* vsPtr = vsBytes)
+        fixed (byte* fsPtr = fsBytes)
+        {
+            VertexBufferLayout* vbPtr = null;
+            uint vbCount = 0;
+            if (vertexBuffers.Length > 0)
+            {
+                var totalAttrs = vertexBuffers.ToArray().Sum(static vb => vb.Attributes.Length);
+
+                Span<VertexAttribute> allNativeAttrs = stackalloc VertexAttribute[totalAttrs];
+                Span<VertexBufferLayout> nativeBuffers = stackalloc VertexBufferLayout[vertexBuffers.Length];
+
+                fixed (VertexAttribute* attrPtr = allNativeAttrs)
+                fixed (VertexBufferLayout* bufPtr = nativeBuffers)
+                {
+                    var attrOff = 0;
+                    for (var i = 0; i < vertexBuffers.Length; i++)
+                    {
+                        var desc = vertexBuffers[i];
+                        for (var j = 0; j < desc.Attributes.Length; j++)
+                        {
+                            attrPtr[attrOff + j] = new VertexAttribute
+                            {
+                                ShaderLocation = desc.Attributes[j].ShaderLocation,
+                                Format = desc.Attributes[j].Format,
+                                Offset = desc.Attributes[j].Offset
+                            };
+                        }
+                        bufPtr[i] = new VertexBufferLayout
+                        {
+                            ArrayStride = desc.Stride,
+                            StepMode = desc.StepMode,
+                            AttributeCount = (nuint)desc.Attributes.Length,
+                            Attributes = attrPtr + attrOff
+                        };
+                        attrOff += desc.Attributes.Length;
+                    }
+                    vbPtr = bufPtr;
+                    vbCount = (uint)vertexBuffers.Length;
+                }
+            }
+
+            FragmentState fragment = new()
+            {
+                Module = (ShaderModule*)shader.Get<ShaderData>().NativePtr,
+                EntryPoint = fsPtr,
+                TargetCount = 0,
+                Targets = null
+            };
+
+            RenderPipelineDescriptor descriptor = new()
+            {
+                Layout = (PipelineLayout*)layout.Get<PipelineLayoutData>().NativePtr,
+                Vertex = new VertexState
+                {
+                    Module = (ShaderModule*)shader.Get<ShaderData>().NativePtr,
+                    EntryPoint = vsPtr,
+                    BufferCount = vbCount,
+                    Buffers = vbPtr
+                },
+                Primitive = new PrimitiveState
+                {
+                    Topology = PrimitiveTopology.TriangleList,
+                    StripIndexFormat = IndexFormat.Undefined,
+                    FrontFace = FrontFace.Ccw,
+                    CullMode = CullMode.None
+                },
+                Multisample = new MultisampleState
+                {
+                    Count = 1,
+                    Mask = uint.MaxValue,
+                    AlphaToCoverageEnabled = false
+                },
+                Fragment = &fragment,
+                DepthStencil = &ds,
+                Label = null
+            };
+
+            return CreateRenderPipeline(ctx, &descriptor, shader, shader, layout);
+        }
     }
 
     // --- RenderPipeline MRT (multiple color targets) ---

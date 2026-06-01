@@ -12,6 +12,7 @@ public sealed class DeferredLightingNode : RenderNode
     private readonly LightSyncSystem _lightSync;
     private readonly GBuffer _gbuffer;
     private readonly TextureFormat _surfaceFormat;
+    private readonly ShadowPassNode? _shadowNode;
 
     private Entity _sampler;
     private Entity _pipelineLayout;
@@ -21,7 +22,12 @@ public sealed class DeferredLightingNode : RenderNode
     private Entity? _cachedFrameBg;
     private int _cachedCameraBufferId = -1;
     private int _cachedGbufferKey;
+    private int _cachedShadowKey;
     private bool _materialCreated;
+
+    // Dummy resources for no-shadow path
+    private Entity _dummyShadowSampler;
+    private Entity _dummyShadowUniforms;
 
     public Entity SwapchainView { get; set; }
 
@@ -30,13 +36,15 @@ public sealed class DeferredLightingNode : RenderNode
         CameraSyncSystem cameraSync,
         LightSyncSystem lightSync,
         GBuffer gbuffer,
-        TextureFormat surfaceFormat)
+        TextureFormat surfaceFormat,
+        ShadowPassNode? shadowNode = null)
     {
         _ctx = ctx;
         _cameraSync = cameraSync;
         _lightSync = lightSync;
         _gbuffer = gbuffer;
         _surfaceFormat = surfaceFormat;
+        _shadowNode = shadowNode;
     }
 
     public override void DeclareResources()
@@ -60,15 +68,28 @@ public sealed class DeferredLightingNode : RenderNode
             _materialCreated = true;
         }
 
+        EnsureDummyResources();
+
         var cameraId = camBuf.Id.Value;
         var gbufferKey = HashCode.Combine(
             _gbuffer.RT0View.Id.Value, _gbuffer.RT1View.Id.Value,
             _gbuffer.RT2View.Id.Value, _gbuffer.DepthView.Id.Value);
+        var shadowKey = _shadowNode is { } sn
+            ? HashCode.Combine(
+                sn.GetShadowView(0).Id.Value,
+                sn.GetShadowView(1).Id.Value,
+                sn.GetShadowView(2).Id.Value,
+                sn.GetShadowView(3).Id.Value,
+                sn.CombinedShadowUniforms.Id.Value)
+            : 0;
 
-        if (_cachedCameraBufferId == cameraId && _cachedGbufferKey == gbufferKey)
+        if (_cachedCameraBufferId == cameraId
+            && _cachedGbufferKey == gbufferKey
+            && _cachedShadowKey == shadowKey)
             return;
 
-        var bindGroups = BuildMaterialConfig(camBuf).CreateBindGroups(_ctx, _pipelineLayout);
+        var matConfig = BuildMaterialConfig(camBuf);
+        var bindGroups = matConfig.CreateBindGroups(_ctx, _pipelineLayout);
         var newGroup1 = bindGroups[1];
         var newGroup2 = bindGroups[2];
 
@@ -77,9 +98,12 @@ public sealed class DeferredLightingNode : RenderNode
         Entity? newFrameBg = null;
         if (frameBgl?.Host != null)
         {
+            var shadowBuf = _shadowNode?.CombinedShadowUniforms ?? _dummyShadowUniforms;
             newFrameBg = Pipelines.BindGroup(_ctx, frameBgl,
             [
                 Binding.Buffer(0, camBuf, (nuint)Unsafe.SizeOf<CameraUniforms>()),
+                Binding.Buffer(1, shadowBuf,
+                    (nuint)(ShadowPassNode.MaxShadowLights * Unsafe.SizeOf<ShadowUniforms>())),
             ]);
         }
 
@@ -97,10 +121,29 @@ public sealed class DeferredLightingNode : RenderNode
 
         _cachedCameraBufferId = cameraId;
         _cachedGbufferKey = gbufferKey;
+        _cachedShadowKey = shadowKey;
+    }
+
+    private void EnsureDummyResources()
+    {
+        if (_shadowNode is not null) return;
+
+        if (_dummyShadowSampler.Host == null)
+            _dummyShadowSampler = Samplers.ShadowComparison(_ctx);
+        if (_dummyShadowUniforms.Host == null)
+        {
+            var size = ShadowPassNode.MaxShadowLights * Unsafe.SizeOf<ShadowUniforms>();
+            _dummyShadowUniforms = Buffers.Create(_ctx,
+                (ulong)size, BufferUsage.Uniform | BufferUsage.CopyDst);
+            Span<ShadowUniforms> defaults = stackalloc ShadowUniforms[ShadowPassNode.MaxShadowLights];
+            defaults.Fill(ShadowUniforms.Default);
+            Buffers.Write(_ctx, _dummyShadowUniforms, defaults);
+        }
     }
 
     private DeferredLightingMaterial BuildMaterialConfig(Entity camBuf)
     {
+        var sn = _shadowNode;
         return new DeferredLightingMaterial
         {
             GBufferRT0 = _gbuffer.RT0View,
@@ -110,6 +153,12 @@ public sealed class DeferredLightingNode : RenderNode
             Sampler = _sampler,
             CameraBuffer = camBuf,
             LightBuffer = _lightSync.LightBuffer,
+            ShadowSampler = sn?.Sampler ?? _dummyShadowSampler,
+            ShadowMap0 = sn?.GetShadowView(0) ?? _gbuffer.DepthView,
+            ShadowMap1 = sn?.GetShadowView(1) ?? _gbuffer.DepthView,
+            ShadowMap2 = sn?.GetShadowView(2) ?? _gbuffer.DepthView,
+            ShadowMap3 = sn?.GetShadowView(3) ?? _gbuffer.DepthView,
+            CombinedShadowUniforms = sn?.CombinedShadowUniforms ?? _dummyShadowUniforms,
         };
     }
 
@@ -148,4 +197,15 @@ public sealed class DeferredLightingNode : RenderNode
         }
     }
 
+    public override void Dispose()
+    {
+        if (_cachedFrameBg is { Host: not null } fbg) Pipelines.ReleaseBindGroup(_ctx, fbg);
+        if (_cachedGroup1 is { Host: not null } g1) Pipelines.ReleaseBindGroup(_ctx, g1);
+        if (_cachedGroup2 is { Host: not null } g2) Pipelines.ReleaseBindGroup(_ctx, g2);
+        if (_pipeline is { Host: not null }) Pipelines.ReleaseRenderPipeline(_ctx, _pipeline);
+        if (_pipelineLayout is { Host: not null }) Pipelines.ReleasePipelineLayout(_ctx, _pipelineLayout);
+        if (_sampler is { Host: not null }) Samplers.Release(_ctx, _sampler);
+        if (_dummyShadowSampler is { Host: not null }) Samplers.Release(_ctx, _dummyShadowSampler);
+        if (_dummyShadowUniforms is { Host: not null }) Buffers.Release(_ctx, _dummyShadowUniforms);
+    }
 }

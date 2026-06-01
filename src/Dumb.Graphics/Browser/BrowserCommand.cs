@@ -85,4 +85,8 @@ public sealed unsafe class BrowserCommandBackend : ICommandBackend
     public void QueueWriteTexture(nint queue, ImageCopyTexture* destination, void* data, nuint dataSize,
         TextureDataLayout* dataLayout, Extent3D* writeSize) =>
         _wgpu.QueueWriteTexture((Queue*)queue, destination, data, dataSize, dataLayout, writeSize);
+
+    public void CommandEncoderCopyTextureToBuffer(nint encoder, ImageCopyTexture* source,
+        ImageCopyBuffer* destination, Extent3D* copySize) =>
+        _wgpu.CommandEncoderCopyTextureToBuffer((CommandEncoder*)encoder, source, destination, copySize);
 }

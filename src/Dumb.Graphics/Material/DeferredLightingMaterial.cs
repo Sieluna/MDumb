@@ -1,5 +1,6 @@
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Pipeline.Nodes;
 
 namespace Dumb.Graphics.Material;
 
@@ -12,6 +13,12 @@ public struct DeferredLightingMaterial : IMaterial
     public Entity Sampler;
     public Entity CameraBuffer;
     public Entity LightBuffer;
+    public Entity ShadowSampler;
+    public Entity ShadowMap0;
+    public Entity ShadowMap1;
+    public Entity ShadowMap2;
+    public Entity ShadowMap3;
+    public Entity CombinedShadowUniforms;
 
     private Entity? _cachedShader;
 
@@ -21,17 +28,24 @@ public struct DeferredLightingMaterial : IMaterial
 
     private static readonly BindingLayout[][] s_bindGroupLayouts =
     [
-        // Group 0: Frame
+        // Group 0: Frame (camera + shadow uniforms array)
         [
-            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, 336),     // CameraUniforms
+            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, 336),
+            BindingLayout.UniformBuffer(1, ShaderStage.Fragment,
+                (ulong)(ShadowPassNode.MaxShadowLights * 80)),
         ],
-        // Group 1: G-buffer textures
+        // Group 1: G-buffer textures + shadow sampler + shadow maps
         [
             BindingLayout.Sampler(0, ShaderStage.Fragment),
             BindingLayout.Texture(1, ShaderStage.Fragment),
             BindingLayout.Texture(2, ShaderStage.Fragment),
             BindingLayout.Texture(3, ShaderStage.Fragment),
             BindingLayout.Texture(4, ShaderStage.Fragment, TextureSampleType.Depth),
+            BindingLayout.Sampler(5, ShaderStage.Fragment, SamplerBindingType.Comparison),
+            BindingLayout.Texture(6, ShaderStage.Fragment, TextureSampleType.Depth),
+            BindingLayout.Texture(7, ShaderStage.Fragment, TextureSampleType.Depth),
+            BindingLayout.Texture(8, ShaderStage.Fragment, TextureSampleType.Depth),
+            BindingLayout.Texture(9, ShaderStage.Fragment, TextureSampleType.Depth),
         ],
         // Group 2: Lights
         [
@@ -43,10 +57,6 @@ public struct DeferredLightingMaterial : IMaterial
 
     public static TextureFormat[] ColorFormats => [TextureFormat.Rgba8Unorm];
 
-    /// <summary>
-    /// Create the deferred lighting render pipeline and pipeline layout.
-    /// Returns (pipeline, pipelineLayout).
-    /// </summary>
     public static (Entity pipeline, Entity pipelineLayout) CreatePipeline(
         GraphicsContext ctx, TextureFormat surfaceFormat)
     {
@@ -92,6 +102,11 @@ public struct DeferredLightingMaterial : IMaterial
             Binding.Texture(2, GBufferRT1),
             Binding.Texture(3, GBufferRT2),
             Binding.Texture(4, GBufferDepth),
+            Binding.Sampler(5, ShadowSampler),
+            Binding.Texture(6, ShadowMap0),
+            Binding.Texture(7, ShadowMap1),
+            Binding.Texture(8, ShadowMap2),
+            Binding.Texture(9, ShadowMap3),
         ]);
 
         var group2 = Pipelines.BindGroup(ctx, bgl2,
@@ -105,8 +120,8 @@ public struct DeferredLightingMaterial : IMaterial
     private const string FullScreenVertexShader = """
         @vertex
         fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4f {
-            let x = f32(i32(vertex_index & 1u) * 2 - 1);
-            let y = f32(i32(vertex_index >> 1u) * 2 - 1);
+            let x = f32(i32(vertex_index & 1u) * 4 - 1);
+            let y = f32(i32(vertex_index >> 1u) * 4 - 1);
             return vec4f(x, y, 0.0, 1.0);
         }
         """;
@@ -131,15 +146,29 @@ public struct DeferredLightingMaterial : IMaterial
             light_type: u32,
             inner_cone: f32,
             outer_cone: f32,
+            casts_shadows: u32,
+        }
+
+        struct ShadowUniforms {
+            light_vp: mat4x4f,
+            texel_size: vec2f,
+            depth_bias: f32,
+            normal_bias: f32,
         }
 
         @group(0) @binding(0) var<uniform> camera: CameraUniforms;
+        @group(0) @binding(1) var<uniform> shadow_uniforms: array<ShadowUniforms, 4>;
 
         @group(1) @binding(0) var gbuffer_sampler: sampler;
         @group(1) @binding(1) var base_color_tex: texture_2d<f32>;
         @group(1) @binding(2) var normal_roughness_tex: texture_2d<f32>;
         @group(1) @binding(3) var pbr_tex: texture_2d<f32>;
         @group(1) @binding(4) var depth_tex: texture_depth_2d;
+        @group(1) @binding(5) var shadow_sampler: sampler_comparison;
+        @group(1) @binding(6) var shadow_map_0: texture_depth_2d;
+        @group(1) @binding(7) var shadow_map_1: texture_depth_2d;
+        @group(1) @binding(8) var shadow_map_2: texture_depth_2d;
+        @group(1) @binding(9) var shadow_map_3: texture_depth_2d;
 
         @group(2) @binding(0) var<uniform> lights: array<LightData, 64>;
 
@@ -190,9 +219,52 @@ public struct DeferredLightingMaterial : IMaterial
             return (diffuse + specular) * NdotL;
         }
 
-        fn evaluate_directional(light: LightData, N: vec3f, V: vec3f, roughness: f32, metallic: f32, albedo: vec3f) -> vec3f {
+        fn shadow_depth_sample(map_index: u32, uv: vec2f, z: f32) -> f32 {
+            switch map_index {
+                case 0u: { return textureSampleCompare(shadow_map_0, shadow_sampler, uv, z); }
+                case 1u: { return textureSampleCompare(shadow_map_1, shadow_sampler, uv, z); }
+                case 2u: { return textureSampleCompare(shadow_map_2, shadow_sampler, uv, z); }
+                default: { return textureSampleCompare(shadow_map_3, shadow_sampler, uv, z); }
+            }
+        }
+
+        fn shadow_tent_5x5(coord: vec4f, map_index: u32) -> f32 {
+            // WebGPU viewport fb_y = h·(1 - ndc_y)/2  →  ndc_y = 1 - 2·uv.y
+            let u = coord.x / coord.w * 0.5 + 0.5;
+            let v = 0.5 - coord.y / coord.w * 0.5;
+            let z = coord.z / coord.w;
+            let ts = shadow_uniforms[map_index].texel_size;
+            var sum = 0.0f;
+            sum += 4.0 * shadow_depth_sample(map_index, vec2f(u, v), z);
+            sum += 2.0 * shadow_depth_sample(map_index, vec2f(u - ts.x, v), z);
+            sum += 2.0 * shadow_depth_sample(map_index, vec2f(u + ts.x, v), z);
+            sum += 2.0 * shadow_depth_sample(map_index, vec2f(u, v - ts.y), z);
+            sum += 2.0 * shadow_depth_sample(map_index, vec2f(u, v + ts.y), z);
+            sum += 1.0 * shadow_depth_sample(map_index, vec2f(u - ts.x, v - ts.y), z);
+            sum += 1.0 * shadow_depth_sample(map_index, vec2f(u + ts.x, v - ts.y), z);
+            sum += 1.0 * shadow_depth_sample(map_index, vec2f(u - ts.x, v + ts.y), z);
+            sum += 1.0 * shadow_depth_sample(map_index, vec2f(u + ts.x, v + ts.y), z);
+            return sum / 16.0;
+        }
+
+        fn evaluate_directional(light: LightData, world_pos: vec3f, N: vec3f, V: vec3f, roughness: f32, metallic: f32, albedo: vec3f) -> vec3f {
             let L = normalize(-light.direction);
-            return light.color * light.intensity * specular_brdf(N, V, L, roughness, metallic, albedo);
+            let brdf = specular_brdf(N, V, L, roughness, metallic, albedo);
+            var shadow_factor = 1.0f;
+
+            let si = light.casts_shadows;
+            if si > 0u {
+                let shadow_idx = si - 1u;
+                let su = shadow_uniforms[shadow_idx];
+                let shadow_coord = su.light_vp * vec4f(world_pos, 1.0);
+                let NdotL = max(dot(N, L), 0.0);
+                let bias = su.depth_bias + su.normal_bias * (1.0 - NdotL);
+                var biased = shadow_coord;
+                biased.z -= bias;
+                shadow_factor = shadow_tent_5x5(biased, shadow_idx);
+            }
+
+            return light.color * light.intensity * brdf * shadow_factor;
         }
 
         fn evaluate_point(light: LightData, world_pos: vec3f, N: vec3f, V: vec3f, roughness: f32, metallic: f32, albedo: vec3f) -> vec3f {
@@ -231,8 +303,10 @@ public struct DeferredLightingMaterial : IMaterial
             let occlusion = pbr_sample.g;
             let emissive = pbr_sample.b * base_color;
 
-            // Reconstruct world position from depth
-            let clip = vec4f(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+            // Reconstruct world position from depth.
+            // WebGPU viewport: fb_y = h·(1 - ndc_y)/2  →  ndc_y = 1 - 2·uv.y (Y=0 at top).
+            // X is the same as OpenGL; Z is already in [0,1] NDC.
+            let clip = vec4f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, depth, 1.0);
             let view_space = camera.projection_inverse * clip;
             let view_pos = view_space.xyz / view_space.w;
             let world_pos = (camera.view_inverse * vec4f(view_pos, 1.0)).xyz;
@@ -247,7 +321,7 @@ public struct DeferredLightingMaterial : IMaterial
                 if light.intensity <= 0.0 { continue; }
 
                 if light.light_type == LIGHT_DIRECTIONAL {
-                    color += evaluate_directional(light, normal, V, roughness, metallic, base_color);
+                    color += evaluate_directional(light, world_pos, normal, V, roughness, metallic, base_color);
                 } else if light.light_type == LIGHT_POINT {
                     color += evaluate_point(light, world_pos, normal, V, roughness, metallic, base_color);
                 } else if light.light_type == LIGHT_SPOT {

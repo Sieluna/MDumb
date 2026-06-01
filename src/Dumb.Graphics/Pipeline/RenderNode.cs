@@ -17,4 +17,5 @@ public abstract class RenderNode
     public virtual void DeclareResources() { }
     public virtual void Update(World world) { }
     public abstract void Execute(World world, RenderContext ctx);
+    public virtual void Dispose() { }
 }

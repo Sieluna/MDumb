@@ -21,6 +21,7 @@ public sealed class PhaseQueueSystem : ExtractSystemBase
     private Entity? _frameBindGroupLayout;
 
     public BinnedRenderPhase OpaquePhase { get; } = new();
+    public BinnedRenderPhase ForwardPhase { get; } = new();
 
     public Entity? FrameBindGroupLayout
     {
@@ -47,6 +48,7 @@ public sealed class PhaseQueueSystem : ExtractSystemBase
     {
         ReturnPooledBindGroups();
         OpaquePhase.Clear();
+        ForwardPhase.Clear();
         _seenIds.Clear();
 
         extract.ForSlice((Entity entity, ref Engine.Mesh.VisibleEntity visible) =>
@@ -76,7 +78,7 @@ public sealed class PhaseQueueSystem : ExtractSystemBase
             var binKey = ((ulong)matData.Pipeline.Id.Value << 32)
                        | ((ulong)gpuMaterial.Id.Value & 0xFFFFFFFF);
 
-            OpaquePhase.Add(new PhaseItem(
+            var item = new PhaseItem(
                 DrawEntity: gpuMaterial,
                 Pipeline: matData.Pipeline,
                 PipelineLayout: matData.PipelineLayout,
@@ -84,7 +86,16 @@ public sealed class PhaseQueueSystem : ExtractSystemBase
                 Mesh: gpuMesh,
                 SubMeshIndex: 0,
                 ModelOffset: modelOffset
-            ), binKey);
+            );
+
+            if (matData.IsForward)
+            {
+                ForwardPhase.Add(item, binKey);
+            }
+            else
+            {
+                OpaquePhase.Add(item, binKey);
+            }
         });
 
         _meshRegistry.CleanupRemoved(_seenIds);
@@ -93,6 +104,10 @@ public sealed class PhaseQueueSystem : ExtractSystemBase
     private void ReturnPooledBindGroups()
     {
         foreach (var binItems in OpaquePhase.Bins)
+            foreach (var item in binItems)
+                if (item.BindGroups is { } arr)
+                    ArrayPool<Entity?>.Shared.Return(arr);
+        foreach (var binItems in ForwardPhase.Bins)
             foreach (var item in binItems)
                 if (item.BindGroups is { } arr)
                     ArrayPool<Entity?>.Shared.Return(arr);

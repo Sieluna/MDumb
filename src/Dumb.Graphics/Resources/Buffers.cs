@@ -105,4 +105,30 @@ public static unsafe class Buffers
             buffer.Destroy();
         }
     }
+
+    public static Entity CreateStaging(GraphicsContext ctx, ulong size)
+    {
+        return Create(ctx, size, BufferUsage.CopyDst | BufferUsage.MapRead);
+    }
+
+    public static unsafe void MapAsync(
+        GraphicsContext ctx, Entity buffer, MapMode mode, nuint offset, nuint size,
+        delegate* unmanaged[Cdecl]<BufferMapAsyncStatus, void*, void> callback, void* userdata)
+    {
+        ref var buf = ref buffer.Get<BufferData>();
+        ctx.Device.BufferMapAsync(buf.NativePtr, mode, offset, size, callback, userdata);
+    }
+
+    public static unsafe byte[] ReadMapped(GraphicsContext ctx, Entity buffer, nuint size)
+    {
+        ref var buf = ref buffer.Get<BufferData>();
+        var mapped = ctx.Device.BufferGetConstMappedRange(buf.NativePtr, 0, size);
+        if (mapped == null)
+            throw new InvalidOperationException("Buffer is not mapped");
+        var byteCount = checked((int)size);
+        var result = new byte[byteCount];
+        fixed (byte* dst = result)
+            new ReadOnlySpan<byte>(mapped, byteCount).CopyTo(new Span<byte>(dst, byteCount));
+        return result;
+    }
 }

@@ -56,20 +56,28 @@ public sealed class RenderSettingsSystem : ExtractSystemBase
             if (entity.Contains<Engine.Render.ShadowSettings>())
             {
                 ref var ss = ref entity.Get<Engine.Render.ShadowSettings>();
-                result.ShadowsMaxDistance = Lerp(result.ShadowsMaxDistance, ss.MaxDistance, t);
-                result.CascadeCount = (uint)(int)Lerp((int)result.CascadeCount, ss.CascadeCount, t);
-                result.DepthBias = Lerp(result.DepthBias, ss.DepthBias, t);
-                result.NormalBias = Lerp(result.NormalBias, ss.NormalBias, t);
+                if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.MaxDistance) != 0)
+                    result.ShadowsMaxDistance = Lerp(result.ShadowsMaxDistance, ss.MaxDistance, t);
+                if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.CascadeCount) != 0)
+                    result.CascadeCount = (uint)(int)Lerp((int)result.CascadeCount, ss.CascadeCount, t);
+                if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.DepthBias) != 0)
+                    result.DepthBias = Lerp(result.DepthBias, ss.DepthBias, t);
+                if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.NormalBias) != 0)
+                    result.NormalBias = Lerp(result.NormalBias, ss.NormalBias, t);
             }
 
             if (entity.Contains<Engine.Render.PostProcessSettings>())
             {
                 ref var pp = ref entity.Get<Engine.Render.PostProcessSettings>();
-                result.BloomIntensity = Lerp(result.BloomIntensity, pp.BloomIntensity, t);
-                result.BloomThreshold = Lerp(result.BloomThreshold, pp.BloomThreshold, t);
-                result.Exposure = Lerp(result.Exposure, pp.Exposure, t);
-                result.AmbientColor = Vector3.Lerp(result.AmbientColor,
-                    new Vector3(pp.AmbientR, pp.AmbientG, pp.AmbientB), t);
+                if ((volume.PostMask & Engine.Render.PostProcessOverride.BloomIntensity) != 0)
+                    result.BloomIntensity = Lerp(result.BloomIntensity, pp.BloomIntensity, t);
+                if ((volume.PostMask & Engine.Render.PostProcessOverride.BloomThreshold) != 0)
+                    result.BloomThreshold = Lerp(result.BloomThreshold, pp.BloomThreshold, t);
+                if ((volume.PostMask & Engine.Render.PostProcessOverride.Exposure) != 0)
+                    result.Exposure = Lerp(result.Exposure, pp.Exposure, t);
+                if ((volume.PostMask & Engine.Render.PostProcessOverride.AmbientColor) != 0)
+                    result.AmbientColor = Vector3.Lerp(result.AmbientColor,
+                        new Vector3(pp.AmbientR, pp.AmbientG, pp.AmbientB), t);
             }
         }
 

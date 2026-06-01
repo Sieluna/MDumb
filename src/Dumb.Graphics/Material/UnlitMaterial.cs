@@ -38,7 +38,7 @@ public struct UnlitMaterial : IMaterial
         // Group 0: Frame (camera + model — provided by renderer)
         [
             BindingLayout.UniformBuffer(0, ShaderStage.Vertex, 336),
-            BindingLayout.UniformBuffer(1, ShaderStage.Vertex, 64, hasDynamicOffset: true)
+            BindingLayout.UniformBuffer(2, ShaderStage.Vertex, 64, hasDynamicOffset: true)
         ],
         // Group 1: Material
         [
@@ -108,7 +108,7 @@ public struct UnlitMaterial : IMaterial
         }
 
         @group(0) @binding(0) var<uniform> camera: CameraUniforms;
-        @group(0) @binding(1) var<uniform> model: mat4x4f;
+        @group(0) @binding(2) var<uniform> model: mat4x4f;
 
         @vertex
         fn vs_main(in: VSInput) -> VSOutput {
