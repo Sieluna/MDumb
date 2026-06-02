@@ -1,141 +1,11 @@
-using Sia;
-using Silk.NET.WebGPU;
-using Dumb.Graphics.Pipeline.Nodes;
+namespace Dumb.Graphics;
 
-namespace Dumb.Graphics.Material;
-
-public struct DeferredLightingMaterial : IMaterial
+public static class DeferredLightingFragmentShader
 {
-    public Entity GBufferRT0;
-    public Entity GBufferRT1;
-    public Entity GBufferRT2;
-    public Entity GBufferDepth;
-    public Entity Sampler;
-    public Entity CameraBuffer;
-    public Entity LightBuffer;
-    public Entity ShadowSampler;
-    public Entity ShadowMap0;
-    public Entity ShadowMap1;
-    public Entity ShadowMap2;
-    public Entity ShadowMap3;
-    public Entity CombinedShadowUniforms;
-
-    private Entity? _cachedShader;
-
-    public static string Name => "DeferredLighting";
-
-    public static Engine.Mesh.MeshDescriptor VertexDescriptor => new([]);
-
-    private static readonly BindingLayout[][] s_bindGroupLayouts =
-    [
-        // Group 0: Frame (camera + shadow uniforms array)
-        [
-            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, 336),
-            BindingLayout.UniformBuffer(1, ShaderStage.Fragment,
-                (ulong)(ShadowPassNode.MaxShadowLights * 80)),
-        ],
-        // Group 1: G-buffer textures + shadow sampler + shadow maps
-        [
-            BindingLayout.Sampler(0, ShaderStage.Fragment),
-            BindingLayout.Texture(1, ShaderStage.Fragment),
-            BindingLayout.Texture(2, ShaderStage.Fragment),
-            BindingLayout.Texture(3, ShaderStage.Fragment),
-            BindingLayout.Texture(4, ShaderStage.Fragment, TextureSampleType.Depth),
-            BindingLayout.Sampler(5, ShaderStage.Fragment, SamplerBindingType.Comparison),
-            BindingLayout.Texture(6, ShaderStage.Fragment, TextureSampleType.Depth),
-            BindingLayout.Texture(7, ShaderStage.Fragment, TextureSampleType.Depth),
-            BindingLayout.Texture(8, ShaderStage.Fragment, TextureSampleType.Depth),
-            BindingLayout.Texture(9, ShaderStage.Fragment, TextureSampleType.Depth),
-        ],
-        // Group 2: Lights
-        [
-            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, (ulong)(GPULight.MaxLights * GPULight.Size)),
-        ]
-    ];
-
-    public static BindingLayout[][] BindGroupLayouts => s_bindGroupLayouts;
-
-    public static TextureFormat[] ColorFormats => [TextureFormat.Rgba8Unorm];
-
-    public static (Entity pipeline, Entity pipelineLayout) CreatePipeline(
-        GraphicsContext ctx, TextureFormat surfaceFormat)
-    {
-        var shader = Shaders.Wgsl(ctx, FullScreenVertexShader + LightingFragmentShader);
-
-        var bgls = BindGroupLayouts;
-        var bglEntities = new Entity[bgls.Length];
-        for (var i = 0; i < bgls.Length; i++)
-            bglEntities[i] = Pipelines.BindGroupLayout(ctx, bgls[i]);
-
-        var pipelineLayout = Pipelines.Layout(ctx, bglEntities);
-
-        var vertLayouts = Mesh.ToVertexBufferLayouts(
-            VertexDescriptor.Streams);
-
-        var pipeline = Pipelines.Render(ctx, shader, pipelineLayout,
-            surfaceFormat, null, vertLayouts, blend: null);
-
-        return (pipeline, pipelineLayout);
-    }
-
-    public Entity GetShader(GraphicsContext ctx)
-    {
-        if (_cachedShader is { Host: not null } s)
-            return s;
-
-        _cachedShader = Shaders.Wgsl(ctx, FullScreenVertexShader + LightingFragmentShader);
-        return _cachedShader!;
-    }
-
-    public Entity?[] CreateBindGroups(GraphicsContext ctx, Entity pipelineLayout)
-    {
-        ref var plData = ref pipelineLayout.Get<PipelineLayoutData>();
-        var bgl1 = plData.BindGroupLayouts?[1]
-            ?? throw new InvalidOperationException("Pipeline layout missing bind group layout 1.");
-        var bgl2 = plData.BindGroupLayouts?[2]
-            ?? throw new InvalidOperationException("Pipeline layout missing bind group layout 2.");
-
-        var group1 = Pipelines.BindGroup(ctx, bgl1,
-        [
-            Binding.Sampler(0, Sampler),
-            Binding.Texture(1, GBufferRT0),
-            Binding.Texture(2, GBufferRT1),
-            Binding.Texture(3, GBufferRT2),
-            Binding.Texture(4, GBufferDepth),
-            Binding.Sampler(5, ShadowSampler),
-            Binding.Texture(6, ShadowMap0),
-            Binding.Texture(7, ShadowMap1),
-            Binding.Texture(8, ShadowMap2),
-            Binding.Texture(9, ShadowMap3),
-        ]);
-
-        var group2 = Pipelines.BindGroup(ctx, bgl2,
-        [
-            Binding.Buffer(0, LightBuffer, (nuint)(GPULight.MaxLights * GPULight.Size)),
-        ]);
-
-        return [null, group1, group2];
-    }
-
-    private const string FullScreenVertexShader = """
-        @vertex
-        fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4f {
-            let x = f32(i32(vertex_index & 1u) * 4 - 1);
-            let y = f32(i32(vertex_index >> 1u) * 4 - 1);
-            return vec4f(x, y, 0.0, 1.0);
-        }
-        """;
-
-    private const string LightingFragmentShader = """
-        struct CameraUniforms {
-            view_projection: mat4x4f,
-            view: mat4x4f,
-            projection: mat4x4f,
-            camera_position: vec3f,
-            _pad0: f32,
-            view_inverse: mat4x4f,
-            projection_inverse: mat4x4f,
-        }
+    public const string Source = """
+        #import dumb::camera
+        #import dumb::brdf
+        #import dumb::encoding
 
         struct LightData {
             color: vec3f,
@@ -176,49 +46,6 @@ public struct DeferredLightingMaterial : IMaterial
         const LIGHT_POINT = 1u;
         const LIGHT_SPOT = 2u;
 
-        fn octahedron_decode(v: vec2f) -> vec3f {
-            var n = v * 2.0 - 1.0;
-            let abs_sum = abs(n.x) + abs(n.y);
-            var result: vec3f;
-            if abs_sum <= 1.0 {
-                result.z = 1.0 - abs_sum;
-                result.x = n.x;
-                result.y = n.y;
-            } else {
-                result.z = abs_sum - 1.0;
-                result.x = select(abs(n.y) - 1.0, 1.0 - abs(n.y), n.x >= 0.0);
-                result.y = select(abs(n.x) - 1.0, 1.0 - abs(n.x), n.y >= 0.0);
-            }
-            return normalize(result);
-        }
-
-        fn specular_brdf(N: vec3f, V: vec3f, L: vec3f, roughness: f32, metallic: f32, albedo: vec3f) -> vec3f {
-            let H = normalize(L + V);
-            let NdotL = max(dot(N, L), 0.0);
-            let NdotV = max(dot(N, V), 0.001);
-            let NdotH = max(dot(N, H), 0.0);
-            let VdotH = max(dot(V, H), 0.0);
-
-            let alpha = roughness * roughness;
-            let alpha2 = alpha * alpha;
-
-            let denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
-            let D = alpha2 / (3.14159265 * denom * denom);
-
-            let k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-            let G1 = NdotL / (NdotL * (1.0 - k) + k);
-            let G2 = NdotV / (NdotV * (1.0 - k) + k);
-            let G = G1 * G2;
-
-            let F0 = mix(vec3f(0.04), albedo, metallic);
-            let F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
-
-            let specular = D * G * F / max(4.0 * NdotV * NdotL, 0.001);
-            let diffuse = albedo * (1.0 - F0) * (1.0 - metallic) / 3.14159265;
-
-            return (diffuse + specular) * NdotL;
-        }
-
         fn shadow_depth_sample(map_index: u32, uv: vec2f, z: f32) -> f32 {
             switch map_index {
                 case 0u: { return textureSampleCompare(shadow_map_0, shadow_sampler, uv, z); }
@@ -229,7 +56,6 @@ public struct DeferredLightingMaterial : IMaterial
         }
 
         fn shadow_tent_5x5(coord: vec4f, map_index: u32) -> f32 {
-            // WebGPU viewport fb_y = h·(1 - ndc_y)/2  →  ndc_y = 1 - 2·uv.y
             let u = coord.x / coord.w * 0.5 + 0.5;
             let v = 0.5 - coord.y / coord.w * 0.5;
             let z = coord.z / coord.w;
@@ -303,9 +129,6 @@ public struct DeferredLightingMaterial : IMaterial
             let occlusion = pbr_sample.g;
             let emissive = pbr_sample.b * base_color;
 
-            // Reconstruct world position from depth.
-            // WebGPU viewport: fb_y = h·(1 - ndc_y)/2  →  ndc_y = 1 - 2·uv.y (Y=0 at top).
-            // X is the same as OpenGL; Z is already in [0,1] NDC.
             let clip = vec4f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, depth, 1.0);
             let view_space = camera.projection_inverse * clip;
             let view_pos = view_space.xyz / view_space.w;
@@ -313,7 +136,6 @@ public struct DeferredLightingMaterial : IMaterial
             let V = normalize(camera.camera_position - world_pos);
 
             var color = vec3f(0.0);
-            // Ambient term
             color += base_color * 0.03 * occlusion;
 
             for (var i = 0u; i < 64u; i++) {

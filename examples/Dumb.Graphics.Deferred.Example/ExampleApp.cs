@@ -10,7 +10,7 @@ using Dumb.Graphics;
 using Dumb.Graphics.Config;
 using Dumb.Graphics.Pipeline;
 using Dumb.Graphics.Pipeline.Nodes;
-using Dumb.Graphics.Material;
+using Dumb.Graphics.Materials;
 using Dumb.Engine.Render;
 using Sia;
 using Silk.NET.WebGPU;
@@ -123,8 +123,8 @@ public sealed class ExampleApp : IDisposable
         Console.WriteLine($"[Deferred] Surface format: {_surface.Format}");
         ConfigureSurface();
 
-        _cameraController = CameraController.CreateFreeLook(new Vector3(0, 2, 0), 8f,
-            MathF.PI / 4f, MathF.PI / 6f);
+        _cameraController = CameraController.CreateFreeLook(new Vector3(0, 3, 0), 8f,
+            MathF.PI / 4f, MathF.PI / 4f);
 #endif
 
         SetupErrorCallback();
@@ -177,7 +177,7 @@ public sealed class ExampleApp : IDisposable
         _gbuffer = new GBuffer(_graphics, (uint)NativeWidth, (uint)NativeHeight);
 
         _cameraEntity = _engineWorld.Create(HList.From(
-            Camera.CreateFreeLook(new Vector3(0, 2, 0), 8f, MathF.PI / 4f, MathF.PI / 6f),
+            Camera.CreateFreeLook(new Vector3(0, 3, 0), 8f, MathF.PI / 4f, MathF.PI / 4f),
             new LocalTransform { Position = new Vector3(0, 3, -8) }));
 
         var cameraSync = new CameraSyncSystem(_graphics);
@@ -299,8 +299,8 @@ public sealed class ExampleApp : IDisposable
         foreach (var entity in _meshEntities)
             _meshRegistry.RegisterMaterial(entity, _pbrMaterialEntity);
 
-        // Transparent box (overrides to forward material)
-        AddBox(new Vector3(0, 1.5f, -1), 1.2f, new Vector3(0.3f, 0.7f, 1.0f));
+        // Transparent box — offset to avoid clipping other geometry
+        AddBox(new Vector3(1.5f, 1.5f, 1.5f), 1.2f, new Vector3(0.3f, 0.7f, 1.0f));
         _meshRegistry.RegisterMaterial(_meshEntities[^1], _forwardMaterialEntity);
     }
 

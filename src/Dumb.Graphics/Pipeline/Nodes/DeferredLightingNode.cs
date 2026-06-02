@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using Dumb.Graphics.Material;
+using Dumb.Graphics.Materials;
 using Sia;
 using Silk.NET.WebGPU;
 
