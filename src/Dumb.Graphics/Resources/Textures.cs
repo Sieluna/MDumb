@@ -1,8 +1,7 @@
-using System.Threading;
 using Sia;
 using Silk.NET.WebGPU;
 
-namespace Dumb.Graphics;
+namespace Dumb.Graphics.Resources;
 
 public readonly record struct RenderTexture(
     Entity Texture,

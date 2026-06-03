@@ -1,8 +1,8 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics.Pipeline.Nodes;
 
@@ -142,7 +142,7 @@ public sealed class ShadowPassNode : RenderNode
             // Update the light buffer: set shadow index (1-based) for this light
             Buffers.Write(_ctx, _lightSync.LightBuffer,
                 (uint)(si + 1),
-                (ulong)(slot * GPULight.Size + 56));
+                (ulong)((slot * GPULight.Size) + 56));
 
             var frameBg = GetOrCreateFrameBg(si);
             if (frameBg is null) continue;
@@ -198,13 +198,13 @@ public sealed class ShadowPassNode : RenderNode
             if (_lightSync.GetLightType(slot) != 0)
             {
                 Buffers.Write(_ctx, _lightSync.LightBuffer,
-                    0u, (ulong)(slot * GPULight.Size + 56));
+                    0u, (ulong)((slot * GPULight.Size) + 56));
                 continue;
             }
             if (!_lightSync.GetLightCastsShadows(slot))
             {
                 Buffers.Write(_ctx, _lightSync.LightBuffer,
-                    0u, (ulong)(slot * GPULight.Size + 56));
+                    0u, (ulong)((slot * GPULight.Size) + 56));
             }
         }
 

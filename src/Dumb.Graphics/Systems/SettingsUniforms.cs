@@ -15,7 +15,7 @@ public struct SettingsUniforms
     public float BloomThreshold;
     public float Exposure;
 
-    private float _align0;
+    private readonly float _align0;
 
     public Vector3 AmbientColor;
     public float _pad;

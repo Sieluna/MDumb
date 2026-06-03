@@ -7,6 +7,7 @@ using Dumb.Engine.Mesh;
 using Dumb.Engine.Transform;
 using Dumb.Graphics;
 using Dumb.Graphics.Materials;
+using Dumb.Graphics.Resources;
 using Sia;
 using Silk.NET.WebGPU;
 #if BROWSER
@@ -287,7 +288,7 @@ public sealed class ExampleApp : IDisposable
         for (var i = 0; i < bglEntities.Length; i++)
             bglEntities[i] = Pipelines.BindGroupLayout(_graphics, UnlitMaterial.BindGroupLayouts[i]);
         var layout = Pipelines.Layout(_graphics, bglEntities);
-        var vertLayouts = Dumb.Graphics.Mesh.ToVertexBufferLayouts(UnlitMaterial.VertexDescriptor.Streams);
+        var vertLayouts = Dumb.Graphics.Resources.Mesh.ToVertexBufferLayouts(UnlitMaterial.VertexDescriptor.Streams);
         var pipeline = Pipelines.Render(_graphics, shader, layout,
             _surface.Format, TextureFormat.Depth32float, vertLayouts, UnlitMaterial.Blend);
         var bindGroups = unlitMat.CreateBindGroups(_graphics, layout);
@@ -343,7 +344,7 @@ public sealed class ExampleApp : IDisposable
                     continue;
                 var dynOffset = (uint)offset;
                 pass.SetBindGroup(0, _frameBindGroup, new ReadOnlySpan<uint>(&dynOffset, 1));
-                Dumb.Graphics.Mesh.Draw(pass, gpuMesh);
+                Dumb.Graphics.Resources.Mesh.Draw(pass, gpuMesh);
             }
         }
 
@@ -394,7 +395,7 @@ public sealed class ExampleApp : IDisposable
 
     private void AddMesh(MeshData data, Vector3 position, Vector3 scale)
     {
-        var gpuMesh = Dumb.Graphics.Mesh.Create(_graphics, data);
+        var gpuMesh = Dumb.Graphics.Resources.Mesh.Create(_graphics, data);
         var local = Affine3D.FromTRS(position, Quaternion.Identity, scale);
         var entity = _engineWorld.Create(HList.From(
             new LocalTransform { Position = position, Scale = scale },

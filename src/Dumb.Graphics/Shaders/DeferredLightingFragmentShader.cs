@@ -120,7 +120,7 @@ public static class DeferredLightingFragmentShader
             let base_color_sample = textureSample(base_color_tex, gbuffer_sampler, uv);
             let nr_sample = textureSample(normal_roughness_tex, gbuffer_sampler, uv);
             let pbr_sample = textureSample(pbr_tex, gbuffer_sampler, uv);
-            let depth = textureSample(depth_tex, gbuffer_sampler, uv);
+            let depth = textureLoad(depth_tex, vec2i(screen_pos.xy), 0);
 
             let base_color = base_color_sample.rgb;
             let normal = octahedron_decode(nr_sample.rg);

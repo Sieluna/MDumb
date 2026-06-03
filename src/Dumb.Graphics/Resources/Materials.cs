@@ -1,7 +1,8 @@
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Materials;
 
-namespace Dumb.Graphics;
+namespace Dumb.Graphics.Resources;
 
 public static class Materials
 {

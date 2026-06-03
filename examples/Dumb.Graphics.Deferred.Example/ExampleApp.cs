@@ -11,6 +11,7 @@ using Dumb.Graphics.Config;
 using Dumb.Graphics.Pipeline;
 using Dumb.Graphics.Pipeline.Nodes;
 using Dumb.Graphics.Materials;
+using Dumb.Graphics.Resources;
 using Dumb.Engine.Render;
 using Sia;
 using Silk.NET.WebGPU;
@@ -258,7 +259,7 @@ public sealed class ExampleApp : IDisposable
             EmissiveTexture = defaultBlack,
             Sampler = Samplers.LinearClamp(_graphics)
         };
-        _pbrMaterialEntity = Materials.Create(_graphics, mat);
+        _pbrMaterialEntity = Dumb.Graphics.Resources.Materials.Create(_graphics, mat);
 
         ref var matData = ref _pbrMaterialEntity.Get<MaterialResourceData>();
         ref var plData = ref matData.PipelineLayout.Get<PipelineLayoutData>();
@@ -283,7 +284,7 @@ public sealed class ExampleApp : IDisposable
             EmissiveTexture = defaultBlack,
             Sampler = Samplers.LinearClamp(_graphics)
         };
-        _forwardMaterialEntity = Materials.Create(_graphics, fwdMat);
+        _forwardMaterialEntity = Dumb.Graphics.Resources.Materials.Create(_graphics, fwdMat);
 
         // Geometry — all opaque (floor + 5 boxes)
         AddFloor(new Vector3(-5, 0, -5), new Vector3(5, 0, -5),

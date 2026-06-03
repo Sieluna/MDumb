@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using Sia;
 using Silk.NET.WebGPU;
 using Dumb.Graphics.Interfaces;
+using Dumb.Graphics.Resources;
 #if BROWSER
 using Dumb.Emscripten;
 using Dumb.Graphics.Browser;
@@ -211,17 +211,17 @@ public class GraphicsContext : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _computePipelines.ForSlice<ComputePipelineData>((ref ComputePipelineData d) => Device.ReleaseComputePipeline(d.NativePtr));
-        _renderPipelines.ForSlice<RenderPipelineData>((ref RenderPipelineData d) => Device.ReleaseRenderPipeline(d.NativePtr));
-        _pipelineLayouts.ForSlice<PipelineLayoutData>((ref PipelineLayoutData d) => Device.ReleasePipelineLayout(d.NativePtr));
-        _bindGroups.ForSlice<BindGroupData>((ref BindGroupData d) => Device.ReleaseBindGroup(d.NativePtr));
-        _bindGroupLayouts.ForSlice<BindGroupLayoutData>((ref BindGroupLayoutData d) => Device.ReleaseBindGroupLayout(d.NativePtr));
-        _shaders.ForSlice<ShaderData>((ref ShaderData d) => Device.ReleaseShaderModule(d.NativePtr));
-        _samplers.ForSlice<SamplerData>((ref SamplerData d) => Device.ReleaseSampler(d.NativePtr));
-        _textureViews.ForSlice<TextureViewData>((ref TextureViewData d) => Device.ReleaseTextureView(d.NativePtr));
-        _textures.ForSlice<TextureData>((ref TextureData d) => Device.ReleaseTexture(d.NativePtr));
-        _buffers.ForSlice<BufferData>((ref BufferData d) => Device.ReleaseBuffer(d.NativePtr));
-        _meshes.ForSlice<MeshResourceData>((ref MeshResourceData m) =>
+        _computePipelines.ForSlice((ref ComputePipelineData d) => Device.ReleaseComputePipeline(d.NativePtr));
+        _renderPipelines.ForSlice((ref RenderPipelineData d) => Device.ReleaseRenderPipeline(d.NativePtr));
+        _pipelineLayouts.ForSlice((ref PipelineLayoutData d) => Device.ReleasePipelineLayout(d.NativePtr));
+        _bindGroups.ForSlice((ref BindGroupData d) => Device.ReleaseBindGroup(d.NativePtr));
+        _bindGroupLayouts.ForSlice((ref BindGroupLayoutData d) => Device.ReleaseBindGroupLayout(d.NativePtr));
+        _shaders.ForSlice((ref ShaderData d) => Device.ReleaseShaderModule(d.NativePtr));
+        _samplers.ForSlice((ref SamplerData d) => Device.ReleaseSampler(d.NativePtr));
+        _textureViews.ForSlice((ref TextureViewData d) => Device.ReleaseTextureView(d.NativePtr));
+        _textures.ForSlice((ref TextureData d) => Device.ReleaseTexture(d.NativePtr));
+        _buffers.ForSlice((ref BufferData d) => Device.ReleaseBuffer(d.NativePtr));
+        _meshes.ForSlice((ref MeshResourceData m) =>
         {
             foreach (var vb in m.VertexBuffers)
             {
@@ -231,7 +231,7 @@ public class GraphicsContext : IDisposable
             if (m.IndexBuffer.Host != null)
                 Buffers.Release(this, m.IndexBuffer);
         });
-        _materials.ForSlice<MaterialResourceData>((ref MaterialResourceData m) =>
+        _materials.ForSlice((ref MaterialResourceData m) =>
         {
             if (m.Pipeline.Host != null)
                 Pipelines.ReleaseRenderPipeline(this, m.Pipeline);

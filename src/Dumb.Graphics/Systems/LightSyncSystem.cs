@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics;
 
@@ -122,7 +123,7 @@ public sealed class LightSyncSystem : ExtractSystemBase
         if (_lightBuffer?.Host == null)
         {
             _lightBuffer = Buffers.Create(_ctx,
-                (ulong)(GPULight.MaxLights * GPULight.Size),
+                GPULight.MaxLights * GPULight.Size,
                 BufferUsage.Uniform | BufferUsage.CopyDst | BufferUsage.CopySrc);
         }
 

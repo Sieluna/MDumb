@@ -5,9 +5,9 @@ namespace Dumb.Graphics.Browser;
 
 public sealed unsafe class BrowserDeviceBackend : IDeviceBackend
 {
-    private readonly Dumb.Emscripten.WGPUBrowser _wgpu;
+    private readonly Emscripten.WGPUBrowser _wgpu;
 
-    public BrowserDeviceBackend(Dumb.Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
+    public BrowserDeviceBackend(Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
 
     public nint CreateInstance(InstanceDescriptor* descriptor) =>
         (nint)_wgpu.CreateInstance(descriptor);

@@ -1,4 +1,3 @@
-using System;
 using Silk.NET.WebGPU;
 
 namespace Dumb.Graphics;

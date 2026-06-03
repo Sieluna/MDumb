@@ -1,3 +1,5 @@
+using Dumb.Graphics.Resources;
+
 namespace Dumb.Graphics.Pipeline;
 
 public static class DrawCommand

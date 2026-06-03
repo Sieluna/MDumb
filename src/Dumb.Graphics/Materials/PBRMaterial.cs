@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics.Materials;
 

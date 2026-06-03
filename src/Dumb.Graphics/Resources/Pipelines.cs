@@ -1,11 +1,9 @@
-using System.Linq;
 using System.Text;
-using System.Threading;
 using Sia;
 using Silk.NET.WebGPU;
 using WgpuBuffer = Silk.NET.WebGPU.Buffer;
 
-namespace Dumb.Graphics;
+namespace Dumb.Graphics.Resources;
 
 public readonly struct BindingLayout
 {

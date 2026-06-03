@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics;
 
@@ -59,7 +60,7 @@ public sealed class RenderSettingsSystem : ExtractSystemBase
                 if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.MaxDistance) != 0)
                     result.ShadowsMaxDistance = Lerp(result.ShadowsMaxDistance, ss.MaxDistance, t);
                 if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.CascadeCount) != 0)
-                    result.CascadeCount = (uint)(int)Lerp((int)result.CascadeCount, ss.CascadeCount, t);
+                    result.CascadeCount = (uint)Lerp((int)result.CascadeCount, ss.CascadeCount, t);
                 if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.DepthBias) != 0)
                     result.DepthBias = Lerp(result.DepthBias, ss.DepthBias, t);
                 if ((volume.ShadowMask & Engine.Render.ShadowSettingsOverride.NormalBias) != 0)
@@ -94,10 +95,10 @@ public sealed class RenderSettingsSystem : ExtractSystemBase
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+    private static float Lerp(float a, float b, float t) => a + ((b - a) * t);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Lerp(int a, int b, float t) => (int)(a + (b - a) * t);
+    private static int Lerp(int a, int b, float t) => (int)(a + ((b - a) * t));
 
     // Caches entity reference + sort key; component values re-read each frame.
     private readonly struct CachedVolume(Entity entity, float priority)

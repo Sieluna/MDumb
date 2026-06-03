@@ -1,7 +1,7 @@
 using Silk.NET.WebGPU;
 using Sia;
 
-namespace Dumb.Graphics;
+namespace Dumb.Graphics.Resources;
 
 public struct BufferData
 {

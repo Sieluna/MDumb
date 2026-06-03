@@ -1,5 +1,6 @@
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics;
 
@@ -72,8 +73,8 @@ public static unsafe class Commands
         return new RenderPassDepthStencilAttachment
         {
             View = (TextureView*)view.Get<TextureViewData>().NativePtr,
-            DepthLoadOp = depthLoadOp,
-            DepthStoreOp = depthStoreOp,
+            DepthLoadOp = depthReadOnly ? LoadOp.Undefined : depthLoadOp,
+            DepthStoreOp = depthReadOnly ? StoreOp.Undefined : depthStoreOp,
             DepthClearValue = depthClear,
             DepthReadOnly = depthReadOnly,
             StencilLoadOp = LoadOp.Undefined,

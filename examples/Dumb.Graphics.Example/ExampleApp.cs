@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using Dumb.Engine.Mesh;
 using Sia;
 using Silk.NET.WebGPU;
+using Dumb.Graphics.Materials;
+using Dumb.Graphics.Resources;
 #if BROWSER
 using System.Text;
 using Dumb.Emscripten;
@@ -327,7 +329,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
             FrameBuffer = _frameBuffer,
             ComputeBuffer = _computeBuffer
         };
-        _material = Materials.Create(_graphics, materialDesc);
+        _material = Dumb.Graphics.Resources.Materials.Create(_graphics, materialDesc);
 
         _renderTarget = Textures.RenderTarget(_graphics, OffscreenWidth, OffscreenHeight, ColorFormat);
         _depthTexture = Textures.Create2D(_graphics, OffscreenWidth, OffscreenHeight, DepthFormat, TextureUsage.RenderAttachment);

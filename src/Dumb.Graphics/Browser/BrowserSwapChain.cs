@@ -6,10 +6,10 @@ namespace Dumb.Graphics.Browser;
 
 public sealed unsafe class BrowserSwapChainBackend : ISwapChainBackend
 {
-    private readonly Dumb.Emscripten.WGPUBrowser _wgpu;
+    private readonly Emscripten.WGPUBrowser _wgpu;
     private Dawn.SwapChain* _swapChain;
 
-    public BrowserSwapChainBackend(Dumb.Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
+    public BrowserSwapChainBackend(Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
 
     public TextureFormat GetPreferredFormat(nint surface, nint adapter)
     {

@@ -1,6 +1,6 @@
 using Sia;
 
-namespace Dumb.Graphics;
+namespace Dumb.Graphics.Resources;
 
 public sealed class GpuMeshRegistry
 {

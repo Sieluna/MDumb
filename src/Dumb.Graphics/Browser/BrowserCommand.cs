@@ -6,9 +6,9 @@ namespace Dumb.Graphics.Browser;
 
 public sealed unsafe class BrowserCommandBackend : ICommandBackend
 {
-    private readonly Dumb.Emscripten.WGPUBrowser _wgpu;
+    private readonly Emscripten.WGPUBrowser _wgpu;
 
-    public BrowserCommandBackend(Dumb.Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
+    public BrowserCommandBackend(Emscripten.WGPUBrowser wgpu) => _wgpu = wgpu;
 
     public nint CreateCommandEncoder(nint device, CommandEncoderDescriptor* descriptor) =>
         (nint)_wgpu.DeviceCreateCommandEncoder((Device*)device, descriptor);

@@ -1,6 +1,7 @@
 using Sia;
 using Silk.NET.WebGPU;
 using Dumb.Graphics.Pipeline.Nodes;
+using Dumb.Graphics.Resources;
 
 namespace Dumb.Graphics.Materials;
 
@@ -32,7 +33,7 @@ public struct DeferredLightingMaterial : IMaterial
         [
             BindingLayout.UniformBuffer(0, ShaderStage.Fragment, 336),
             BindingLayout.UniformBuffer(1, ShaderStage.Fragment,
-                (ulong)(ShadowPassNode.MaxShadowLights * 80)),
+                ShadowPassNode.MaxShadowLights * 80),
         ],
         // Group 1: G-buffer textures + shadow sampler + shadow maps
         [
@@ -49,7 +50,7 @@ public struct DeferredLightingMaterial : IMaterial
         ],
         // Group 2: Lights
         [
-            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, (ulong)(GPULight.MaxLights * GPULight.Size)),
+            BindingLayout.UniformBuffer(0, ShaderStage.Fragment, GPULight.MaxLights * GPULight.Size),
         ]
     ];
 
@@ -113,7 +114,7 @@ public struct DeferredLightingMaterial : IMaterial
 
         var group2 = Pipelines.BindGroup(ctx, bgl2,
         [
-            Binding.Buffer(0, LightBuffer, (nuint)(GPULight.MaxLights * GPULight.Size)),
+            Binding.Buffer(0, LightBuffer, GPULight.MaxLights * GPULight.Size),
         ]);
 
         return [null, group1, group2];
