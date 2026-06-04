@@ -243,8 +243,9 @@ public sealed class ShadowPassNode : RenderNode
     {
         var lightPos = -lightDir * LightDistance;
         var up = Math.Abs(lightDir.Y) > 0.99f ? Vector3.UnitZ : Vector3.UnitY;
-        var view = Matrix4x4.CreateLookAt(lightPos, lightPos + lightDir, up);
-        var proj = Engine.Projection.OrthographicGPUSymmetric(ShadowArea, ShadowArea, 0.1f, ShadowArea * 4f);
+        var view = Matrix4x4.CreateLookAtLeftHanded(lightPos, lightPos + lightDir, up);
+        view.M11 = -view.M11; view.M21 = -view.M21; view.M31 = -view.M31; view.M41 = -view.M41;
+        var proj = Matrix4x4.CreateOrthographicLeftHanded(ShadowArea * 2, ShadowArea * 2, 0.1f, ShadowArea * 4f);
         return view * proj;
     }
 

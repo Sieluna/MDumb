@@ -458,7 +458,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     private void RenderFrame(float time)
     {
         var view = Matrix4x4.CreateRotationZ((float)Math.Sin(time * 0.3) * 0.15f);
-        var proj = Matrix4x4.CreateOrthographicOffCenter(-1, 1, -1, 1, -1, 1);
+        var proj = Matrix4x4.CreateOrthographicOffCenterLeftHanded(-1, 1, -1, 1, -1, 1);
         Matrix4x4.Invert(view, out var viewInv);
         Matrix4x4.Invert(proj, out var projInv);
         var cameraUniforms = new CameraUniforms(view * proj, view, proj, Vector3.Zero, viewInv, projInv);

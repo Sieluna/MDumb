@@ -171,7 +171,7 @@ public sealed class ExampleApp : IDisposable
 #endif
     }
 
-    //Pipeline ──────────────────────────────────────────────────
+    //Pipeline
 
     private void CreatePipeline()
     {
@@ -212,7 +212,7 @@ public sealed class ExampleApp : IDisposable
             Console.WriteLine($"[Graph Warning] {warn}");
     }
 
-    //Scene ─────────────────────────────────────────────────────
+    //Scene
 
     private void CreateScene()
     {
@@ -305,7 +305,7 @@ public sealed class ExampleApp : IDisposable
         _meshRegistry.RegisterMaterial(_meshEntities[^1], _forwardMaterialEntity);
     }
 
-    //Per-frame ─────────────────────────────────────────────────
+    //Per-frame
 
     public void TickFrame(float elapsed)
     {
@@ -347,7 +347,7 @@ public sealed class ExampleApp : IDisposable
     }
 #endif
 
-    //Geometry ──────────────────────────────────────────────────
+    //Geometry
 
     private void AddBox(Vector3 center, float size, Vector3 color)
     {
@@ -403,7 +403,7 @@ public sealed class ExampleApp : IDisposable
         _meshEntities.Add(entity);
     }
 
-    //Default texture ───────────────────────────────────────────
+    //Default texture
 
     private unsafe Entity CreateDefaultTextureView(byte r, byte g, byte b, byte a)
     {
@@ -435,7 +435,7 @@ public sealed class ExampleApp : IDisposable
         return view;
     }
 
-    //Platform ──────────────────────────────────────────────────
+    //Platform
 
 #if !BROWSER
     private unsafe void CreateSurface()
@@ -507,7 +507,7 @@ public sealed class ExampleApp : IDisposable
     }
 #endif
 
-    //Error callback ────────────────────────────────────────────
+    //Error callback
 
     private unsafe void SetupErrorCallback()
     {
@@ -524,7 +524,7 @@ public sealed class ExampleApp : IDisposable
         Console.WriteLine($"[WGPU {type}] {msg}");
     }
 
-    //Dispose ───────────────────────────────────────────────────
+    //Dispose
 
     public void Dispose()
     {

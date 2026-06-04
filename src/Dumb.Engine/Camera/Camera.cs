@@ -18,11 +18,20 @@ public partial record struct Camera(
     public readonly Vector3 Right => Vector3.Transform(Vector3.UnitX, Rotation);
     public readonly Vector3 Up => Vector3.Transform(Vector3.UnitY, Rotation);
 
-    public readonly Matrix4x4 ViewMatrix =>
-        Matrix4x4.CreateLookAt(Position, Position + Forward, Up);
+    public readonly Matrix4x4 ViewMatrix
+    {
+        get
+        {
+            var m = Matrix4x4.CreateLookAtLeftHanded(Position, Position + Forward, Up);
+            // C# Vector3.Cross is right-hand rule; left-handed convention
+            // requires negating the right vector to avoid X-axis mirroring.
+            m.M11 = -m.M11; m.M21 = -m.M21; m.M31 = -m.M31; m.M41 = -m.M41;
+            return m;
+        }
+    }
 
     public readonly Matrix4x4 ProjectionMatrix =>
-        Projection.PerspectiveGPU(Fov, AspectRatio, NearPlane, FarPlane);
+        Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(Fov, AspectRatio, NearPlane, FarPlane);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetYawPitch(float yaw, float pitch)

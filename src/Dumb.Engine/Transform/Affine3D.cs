@@ -184,7 +184,11 @@ public struct Affine3D : IEquatable<Affine3D>
         => FromTRS(position, rotation, scale);
 
     public static Affine3D LookAt(Vector3 eye, Vector3 target, Vector3 up)
-        => FromMatrix4x4(Matrix4x4.CreateLookAt(eye, target, up));
+    {
+        var m = Matrix4x4.CreateLookAtLeftHanded(eye, target, up);
+        m.M11 = -m.M11; m.M21 = -m.M21; m.M31 = -m.M31; m.M41 = -m.M41;
+        return FromMatrix4x4(m);
+    }
 
     public bool Equals(Affine3D other)
         => M11 == other.M11 && M12 == other.M12 && M13 == other.M13 && M14 == other.M14
